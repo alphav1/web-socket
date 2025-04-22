@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Chat</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f2f2f2;
+            --text-color: #333;
+            --border-radius: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f9f9f9;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .login-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .login-container h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--primary-color);
+        }
+
+        .login-container input,
+        .login-container select {
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+
+        .login-container button {
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .login-container button:hover {
+            background-color: #3a7bc8;
+        }
+
+        .chat-container {
+            display: none;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .rooms-list {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding: 5px 15px;
+            background-color: #e9eef6;
+        }
+
+        .room-button {
+            padding: 8px 16px;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s;
+        }
+
+        .room-button.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .room-button:hover:not(.active) {
+            background-color: #f0f0f0;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .messages-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            overflow-y: auto;
+            background-color: white;
+        }
+
+        .message-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            max-width: 70%;
+        }
+
+        .message.received {
+            align-self: flex-start;
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            margin-left: auto;
+        }
+
+        .message-bubble {
+            padding: 12px 15px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .message.received .message-bubble {
+            background-color: var(--secondary-color);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message.sent .message-bubble {
+            background-color: var(--primary-color);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-top: 5px;
+            color: #777;
+        }
+
+        .message-img {
+            max-width: 250px;
+            max-height: 250px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .system-message {
+            text-align: center;
+            margin: 10px 0;
+            font-style: italic;
+            color: #777;
+        }
+
+        .typing-indicator {
+            font-style: italic;
+            color: #777;
+            padding: 5px 10px;
+            height: 25px;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 15px;
+            background-color: white;
+            border-top: 1px solid #eee;
+        }
+
+        .message-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 16px;
+        }
+
+        .send-button,
+        .image-button {
+            padding: 12px 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .image-button {
+            background-color: #5cb85c;
+            margin-right: 10px;
+        }
+
+        .send-button:hover,
+        .image-button:hover {
+            opacity: 0.9;
+        }
+
+        #image-upload {
+            display: none;
+        }
+
+        .file-upload-label {
+            cursor: pointer;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .message {
+                max-width: 85%;
+            }
+
+            .room-button {
+                padding: 6px 12px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container">
+        <h2>Join the Chat</h2>
+        <input type="text" id="nickname-input" placeholder="Enter your nickname" />
+        <select id="room-select">
+            <option value="general">General Chat</option>
+            <option value="technology">Technology</option>
+            <option value="gaming">Gaming</option>
+        </select>
+        <button id="join-btn">Join Chat</button>
+    </div>
+
+    <!-- Chat Screen (initially hidden) -->
+    <div id="chat-screen" class="chat-container">
+        <div class="chat-header">
+            <h2>Socket.IO Chat</h2>
+            <span id="user-info">Logged in as: <b id="current-user"></b></span>
+        </div>
+
+        <div class="rooms-list" id="rooms-list">
+            <!-- Room buttons will be added dynamically -->
+        </div>
+
+        <div class="main-content">
+            <div class="messages-container">
+                <div id="message-list" class="message-list">
+                    <!-- Messages will be added here dynamically -->
+                </div>
+
+                <div id="typing-indicator" class="typing-indicator"></div>
+
+                <div class="input-area">
+                    <label for="image-upload" class="image-button file-upload-label">
+                        <i class="fas">📷</i>
+                    </label>
+                    <input type="file" id="image-upload" accept="image/*" />
+                    <input type="text" id="message-input" class="message-input" placeholder="Type a message..." />
+                    <button id="send-btn" class="send-button">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const socket = io();
+
+            // DOM elements
+            const loginScreen = document.getElementById('login-screen');
+            const chatScreen = document.getElementById('chat-screen');
+            const nicknameInput = document.getElementById('nickname-input');
+            const roomSelect = document.getElementById('room-select');
+            const joinBtn = document.getElementById('join-btn');
+            const currentUserSpan = document.getElementById('current-user');
+            const messageList = document.getElementById('message-list');
+            const messageInput = document.getElementById('message-input');
+            const sendBtn = document.getElementById('send-btn');
+            const typingIndicator = document.getElementById('typing-indicator');
+            const roomsList = document.getElementById('rooms-list');
+            const imageUpload = document.getElementById('image-upload');
+
+            let currentRoom = 'general';
+            let currentUser = '';
+            let typingTimeout = null;
+
+            // Join chat button click handler
+            joinBtn.addEventListener('click', () => {
+                const nickname = nicknameInput.value.trim();
+                const room = roomSelect.value;
+
+                if (nickname.length < 2) {
+                    alert('Please enter a nickname (at least 2 characters)');
+                    return;
+                }
+
+                // Save current user and room
+                currentUser = nickname;
+                currentRoom = room;
+
+                // Update UI
+                currentUserSpan.textContent = nickname;
+
+                // Emit join event to server
+                socket.emit('join', { nickname, room });
+
+                // Switch to chat screen
+                loginScreen.style.display = 'none';
+                chatScreen.style.display = 'flex';
+
+                // Focus on message input
+                messageInput.focus();
+            });
+
+            // Send message button click handler
+            sendBtn.addEventListener('click', sendMessage);
+
+            // Enter key to send message
+            messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+
+            // Function to send a message
+            function sendMessage() {
+                const message = messageInput.value.trim();
+
+                if (message !== '') {
+                    socket.emit('chatMessage', { message });
+                    messageInput.value = '';
+                    messageInput.focus();
+                }
+            }
+
+            // Handle typing indicator
+            messageInput.addEventListener('input', () => {
+                // Clear previous timeout
+                clearTimeout(typingTimeout);
+
+                // Emit typing status true
+                socket.emit('typing', true);
+
+                // Set timeout to stop typing
+                typingTimeout = setTimeout(() => {
+                    socket.emit('typing', false);
+                }, 1000);
+            });
+
+            // Handle image upload
+            imageUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                if (!file.type.match('image.*')) {
+                    alert('Please select an image file');
+                    return;
+                }
+
+                if (file.size > 5 * 1024 * 1024) { // 5MB max
+                    alert('Image size should be less than 5MB');
+                    return;
+                }
+
+                const reader = new FileReader();
+
+                reader.onload = (event) => {
+                    const imageData = event.target.result;
+                    socket.emit('imageMessage', { image: imageData });
+                };
+
+                reader.readAsDataURL(file);
+
+                // Reset file input
+                imageUpload.value = '';
+            });
+
+            // Socket event listeners
+            socket.on('message', (message) => {
+                addMessageToUI(message);
+                // Scroll to bottom
+                messageList.scrollTop = messageList.scrollHeight;
+            });
+
+            socket.on('userJoined', (data) => {
+                const systemMessage = document.createElement('div');
+                systemMessage.className = 'system-message';
+                systemMessage.textContent = `${data.nickname} joined the chat`;
+                messageList.appendChild(systemMessage);
+                messageList.scrollTop = messageList.scrollHeight;
+            });
+
+            socket.on('userLeft', (data) => {
+                const systemMessage = document.createElement('div');
+                systemMessage.className = 'system-message';
+                systemMessage.textContent = `${data.nickname} left the chat`;
+                messageList.appendChild(systemMessage);
+                messageList.scrollTop = messageList.scrollHeight;
+            });
+
+            socket.on('typingStatus', (users) => {
+                if (users.length === 0) {
+                    typingIndicator.textContent = '';
+                } else if (users.length === 1) {
+                    typingIndicator.textContent = `${users[0]} is typing...`;
+                } else {
+                    typingIndicator.textContent = `${users.length} people are typing...`;
+                }
+            });
+
+            socket.on('roomList', (rooms) => {
+                // Clear existing room buttons
+                roomsList.innerHTML = '';
+
+                // Add room buttons
+                rooms.forEach(room => {
+                    const button = document.createElement('button');
+                    button.className = 'room-button';
+                    button.textContent = room.name;
+                    button.dataset.roomId = room.id;
+
+                    if (room.id === currentRoom) {
+                        button.classList.add('active');
+                    }
+
+                    button.addEventListener('click', () => {
+                        if (room.id !== currentRoom) {
+                            // Change room
+                            currentRoom = room.id;
+                            socket.emit('changeRoom', room.id);
+
+                            // Update UI
+                            document.querySelectorAll('.room-button').forEach(btn => {
+                                btn.classList.remove('active');
+                            });
+                            button.classList.add('active');
+
+                            // Clear messages
+                            messageList.innerHTML = '';
+                        }
+                    });
+
+                    roomsList.appendChild(button);
+                });
+            });
+
+            // Function to add a message to the UI
+            function addMessageToUI(message) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = message.id === socket.id ? 'message sent' : 'message received';
+
+                const messageBubble = document.createElement('div');
+                messageBubble.className = 'message-bubble';
+
+                // Check if it's text or image
+                if (message.type === 'image') {
+                    const img = document.createElement('img');
+                    img.src = message.content;
+                    img.className = 'message-img';
+                    img.addEventListener('click', () => {
+                        window.open(message.content, '_blank');
+                    });
+                    messageBubble.appendChild(img);
+                } else {
+                    messageBubble.textContent = message.content;
+                }
+
+                const messageInfo = document.createElement('div');
+                messageInfo.className = 'message-info';
+
+                const nickname = document.createElement('span');
+                nickname.textContent = message.nickname;
+
+                const timestamp = document.createElement('span');
+                const date = new Date(message.timestamp);
+                timestamp.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                messageInfo.appendChild(nickname);
+                messageInfo.appendChild(timestamp);
+
+                messageDiv.appendChild(messageBubble);
+                messageDiv.appendChild(messageInfo);
+
+                messageList.appendChild(messageDiv);
+            }
+        });
+    </script>
+</body>
+
+</html>
