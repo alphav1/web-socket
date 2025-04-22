@@ -12,6 +12,8 @@
             --secondary-color: #f2f2f2;
             --text-color: #333;
             --border-radius: 16px;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
         }
 
         * {
@@ -88,32 +90,77 @@
             color: white;
         }
 
+        .chat-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logout-btn {
+            padding: 6px 12px;
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .logout-btn:hover {
+            background-color: #c0392b;
+        }
+
         .rooms-list {
             display: flex;
             gap: 10px;
             overflow-x: auto;
-            padding: 5px 15px;
+            padding: 10px 15px;
             background-color: #e9eef6;
         }
 
-        .room-button {
-            padding: 8px 16px;
+        .room-card {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
             background-color: white;
             border: 1px solid #ddd;
-            border-radius: 20px;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.3s;
+            border-radius: 8px;
+            padding: 10px;
         }
 
-        .room-button.active {
-            background-color: var(--primary-color);
-            color: white;
+        .room-card.active {
             border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
         }
 
-        .room-button:hover:not(.active) {
-            background-color: #f0f0f0;
+        .room-name {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+
+        .room-card.active .room-name {
+            color: var(--primary-color);
+        }
+
+        .room-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .connect-btn {
+            flex: 1;
+            padding: 5px;
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .connect-btn:hover {
+            opacity: 0.9;
         }
 
         .main-content {
@@ -135,6 +182,8 @@
             flex: 1;
             overflow-y: auto;
             padding: 10px;
+            display: flex;
+            flex-direction: column;
         }
 
         .message {
@@ -170,6 +219,10 @@
             border-bottom-right-radius: 4px;
         }
 
+        .message-text {
+            margin-top: 8px;
+        }
+
         .message-info {
             display: flex;
             justify-content: space-between;
@@ -201,9 +254,39 @@
 
         .input-area {
             display: flex;
+            flex-direction: column;
             padding: 15px;
             background-color: white;
             border-top: 1px solid #eee;
+        }
+
+        .image-preview-container {
+            display: none;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .image-preview {
+            max-width: 100px;
+            max-height: 100px;
+            margin-right: 10px;
+            border-radius: 4px;
+        }
+
+        .remove-image-btn {
+            background-color: var(--danger-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .message-input-wrapper {
+            display: flex;
         }
 
         .message-input {
@@ -236,6 +319,13 @@
             opacity: 0.9;
         }
 
+        .no-room-message {
+            text-align: center;
+            margin: 20px;
+            font-style: italic;
+            color: #777;
+        }
+
         #image-upload {
             display: none;
         }
@@ -250,9 +340,12 @@
                 max-width: 85%;
             }
 
-            .room-button {
-                padding: 6px 12px;
-                font-size: 14px;
+            .rooms-list {
+                flex-wrap: wrap;
+            }
+
+            .room-card {
+                min-width: 120px;
             }
         }
     </style>
@@ -275,33 +368,46 @@
     <div id="chat-screen" class="chat-container">
         <div class="chat-header">
             <h2>Socket.IO Chat</h2>
-            <span id="user-info">Logged in as: <b id="current-user"></b></span>
+            <div class="chat-header-actions">
+                <span id="user-info">Logged in as: <b id="current-user"></b></span>
+                <button id="logout-btn" class="logout-btn">Logout</button>
+            </div>
         </div>
 
         <div class="rooms-list" id="rooms-list">
-            <!-- Room buttons will be added dynamically -->
+            <!-- Room cards will be added dynamically -->
         </div>
 
         <div class="main-content">
             <div class="messages-container">
                 <div id="message-list" class="message-list">
+                    <div id="no-room-message" class="no-room-message">
+                        Please connect to a chat room to start messaging
+                    </div>
                     <!-- Messages will be added here dynamically -->
                 </div>
 
                 <div id="typing-indicator" class="typing-indicator"></div>
 
-                <div class="input-area">
-                    <label for="image-upload" class="image-button file-upload-label">
-                        <i class="fas">📷</i>
-                    </label>
-                    <input type="file" id="image-upload" accept="image/*" />
-                    <input type="text" id="message-input" class="message-input" placeholder="Type a message..." />
-                    <button id="send-btn" class="send-button">Send</button>
+                <div id="input-area" class="input-area">
+                    <div id="image-preview-container" class="image-preview-container">
+                        <img id="image-preview" class="image-preview" src="" alt="Preview">
+                        <button id="remove-image-btn" class="remove-image-btn">×</button>
+                    </div>
+                    <div class="message-input-wrapper">
+                        <label for="image-upload" class="image-button file-upload-label">
+                            <i class="fas">📷</i>
+                        </label>
+                        <input type="file" id="image-upload" accept="image/*" />
+                        <input type="text" id="message-input" class="message-input" placeholder="Type a message..." />
+                        <button id="send-btn" class="send-button">Send</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- External JS -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const socket = io();
@@ -319,12 +425,21 @@
             const typingIndicator = document.getElementById('typing-indicator');
             const roomsList = document.getElementById('rooms-list');
             const imageUpload = document.getElementById('image-upload');
+            const logoutBtn = document.getElementById('logout-btn');
+            const imagePreviewContainer = document.getElementById('image-preview-container');
+            const imagePreview = document.getElementById('image-preview');
+            const removeImageBtn = document.getElementById('remove-image-btn');
+            const noRoomMessage = document.getElementById('no-room-message');
+            const inputArea = document.getElementById('input-area');
 
-            let currentRoom = 'general';
+            // App state
+            let currentRoom = null;
             let currentUser = '';
             let typingTimeout = null;
+            let selectedImageData = null;
+            let availableRooms = [];
 
-            // Join chat button click handler
+            // For login
             joinBtn.addEventListener('click', () => {
                 const nickname = nicknameInput.value.trim();
                 const room = roomSelect.value;
@@ -334,9 +449,8 @@
                     return;
                 }
 
-                // Save current user and room
+                // Save current user
                 currentUser = nickname;
-                currentRoom = room;
 
                 // Update UI
                 currentUserSpan.textContent = nickname;
@@ -347,9 +461,11 @@
                 // Switch to chat screen
                 loginScreen.style.display = 'none';
                 chatScreen.style.display = 'flex';
+            });
 
-                // Focus on message input
-                messageInput.focus();
+            // Logout button
+            logoutBtn.addEventListener('click', () => {
+                socket.emit('logout');
             });
 
             // Send message button click handler
@@ -365,9 +481,27 @@
             // Function to send a message
             function sendMessage() {
                 const message = messageInput.value.trim();
+                const hasContent = message !== '' || selectedImageData;
 
-                if (message !== '') {
-                    socket.emit('chatMessage', { message });
+                if (!currentRoom) {
+                    alert('Please connect to a room first');
+                    return;
+                }
+
+                if (hasContent) {
+                    if (selectedImageData) {
+                        // Send image with optional text
+                        socket.emit('imageMessage', {
+                            image: selectedImageData,
+                            text: message
+                        });
+                        // Clear image preview
+                        imagePreviewContainer.style.display = 'none';
+                        selectedImageData = null;
+                    } else {
+                        // Send text only
+                        socket.emit('chatMessage', { message });
+                    }
                     messageInput.value = '';
                     messageInput.focus();
                 }
@@ -375,6 +509,8 @@
 
             // Handle typing indicator
             messageInput.addEventListener('input', () => {
+                if (!currentRoom) return;
+
                 // Clear previous timeout
                 clearTimeout(typingTimeout);
 
@@ -405,8 +541,9 @@
                 const reader = new FileReader();
 
                 reader.onload = (event) => {
-                    const imageData = event.target.result;
-                    socket.emit('imageMessage', { image: imageData });
+                    selectedImageData = event.target.result;
+                    imagePreview.src = selectedImageData;
+                    imagePreviewContainer.style.display = 'flex';
                 };
 
                 reader.readAsDataURL(file);
@@ -415,9 +552,29 @@
                 imageUpload.value = '';
             });
 
+            // Remove selected image
+            removeImageBtn.addEventListener('click', () => {
+                selectedImageData = null;
+                imagePreviewContainer.style.display = 'none';
+            });
+
             // Socket event listeners
             socket.on('message', (message) => {
                 addMessageToUI(message);
+                // Scroll to bottom
+                messageList.scrollTop = messageList.scrollHeight;
+            });
+
+            socket.on('messageHistory', (messages) => {
+                // Clear existing messages
+                messageList.innerHTML = '';
+                noRoomMessage.style.display = 'none';
+
+                // Add message history
+                messages.forEach(message => {
+                    addMessageToUI(message);
+                });
+
                 // Scroll to bottom
                 messageList.scrollTop = messageList.scrollHeight;
             });
@@ -449,40 +606,73 @@
             });
 
             socket.on('roomList', (rooms) => {
-                // Clear existing room buttons
+                availableRooms = rooms;
+                updateRoomsUI();
+            });
+
+            socket.on('joinSuccess', (data) => {
+                currentRoom = data.roomId;
+                updateRoomsUI();
+
+                // Show input area and hide no room message
+                inputArea.style.display = 'flex';
+                if (noRoomMessage.parentNode) {
+                    noRoomMessage.style.display = 'none';
+                }
+            });
+
+            socket.on('logoutSuccess', () => {
+                // Reset app state
+                currentRoom = null;
+                currentUser = '';
+                selectedImageData = null;
+
+                // Clear UI
+                messageList.innerHTML = '';
+                roomsList.innerHTML = '';
+                imagePreviewContainer.style.display = 'none';
+
+                // Switch back to login screen
+                chatScreen.style.display = 'none';
+                loginScreen.style.display = 'flex';
+            });
+
+            // Update rooms UI
+            function updateRoomsUI() {
+                // Clear existing room cards
                 roomsList.innerHTML = '';
 
-                // Add room buttons
-                rooms.forEach(room => {
-                    const button = document.createElement('button');
-                    button.className = 'room-button';
-                    button.textContent = room.name;
-                    button.dataset.roomId = room.id;
-
+                // Add room cards
+                availableRooms.forEach(room => {
+                    const roomCard = document.createElement('div');
+                    roomCard.className = 'room-card';
                     if (room.id === currentRoom) {
-                        button.classList.add('active');
+                        roomCard.classList.add('active');
                     }
 
-                    button.addEventListener('click', () => {
+                    const roomName = document.createElement('div');
+                    roomName.className = 'room-name';
+                    roomName.textContent = room.name;
+
+                    const roomActions = document.createElement('div');
+                    roomActions.className = 'room-actions';
+
+                    const connectBtn = document.createElement('button');
+                    connectBtn.className = 'connect-btn';
+                    connectBtn.textContent = 'Connect';
+                    connectBtn.addEventListener('click', () => {
                         if (room.id !== currentRoom) {
-                            // Change room
-                            currentRoom = room.id;
                             socket.emit('changeRoom', room.id);
-
-                            // Update UI
-                            document.querySelectorAll('.room-button').forEach(btn => {
-                                btn.classList.remove('active');
-                            });
-                            button.classList.add('active');
-
-                            // Clear messages
-                            messageList.innerHTML = '';
                         }
                     });
 
-                    roomsList.appendChild(button);
+                    roomActions.appendChild(connectBtn);
+                    roomCard.appendChild(roomName);
+                    roomCard.appendChild(roomActions);
+
+                    roomsList.appendChild(roomCard);
                 });
-            });
+            }
 
             // Function to add a message to the UI
             function addMessageToUI(message) {
@@ -501,6 +691,14 @@
                         window.open(message.content, '_blank');
                     });
                     messageBubble.appendChild(img);
+
+                    // Add text if present
+                    if (message.text && message.text.trim() !== '') {
+                        const textDiv = document.createElement('div');
+                        textDiv.className = 'message-text';
+                        textDiv.textContent = message.text;
+                        messageBubble.appendChild(textDiv);
+                    }
                 } else {
                     messageBubble.textContent = message.content;
                 }

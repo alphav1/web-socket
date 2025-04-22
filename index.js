@@ -19,11 +19,11 @@ app.get('/', (req, res) => {
 const users = {};
 // Store typing status
 const typingUsers = {};
-// Store rooms (default to 'general')
+// Store rooms with message history
 const rooms = {
-  'general': { name: 'General Chat' },
-  'technology': { name: 'Technology' },
-  'gaming': { name: 'Gaming' }
+  'general': { name: 'General Chat', messages: [] },
+  'technology': { name: 'Technology', messages: [] },
+  'gaming': { name: 'Gaming', messages: [] }
 };
 
 // Socket.IO connection handling
@@ -56,6 +56,17 @@ io.on('connection', (socket) => {
       name: rooms[key].name
     })));
     
+    // Send message history to the user
+    if (rooms[user.room].messages) {
+      socket.emit('messageHistory', rooms[user.room].messages);
+    }
+    
+    // Send join confirmation
+    socket.emit('joinSuccess', {
+      roomId: user.room,
+      roomName: rooms[user.room].name
+    });
+    
     console.log(`${user.nickname} joined room: ${user.room}`);
   });
   
@@ -72,6 +83,17 @@ io.on('connection', (socket) => {
       id: socket.id,
       type: 'text'
     };
+    
+    // Store message in room history
+    if (!rooms[user.room].messages) {
+      rooms[user.room].messages = [];
+    }
+    rooms[user.room].messages.push(message);
+    
+    // Limit message history (keep last 100 messages)
+    if (rooms[user.room].messages.length > 100) {
+      rooms[user.room].messages.shift();
+    }
     
     // Send to everyone in the room including sender
     io.to(user.room).emit('message', message);
@@ -91,11 +113,23 @@ io.on('connection', (socket) => {
     // Create message object for image
     const message = {
       content: data.image, // Base64 encoded image
+      text: data.text || '', // Optional text with the image
       nickname: user.nickname,
       timestamp: new Date().toISOString(),
       id: socket.id,
       type: 'image'
     };
+    
+    // Store message in room history
+    if (!rooms[user.room].messages) {
+      rooms[user.room].messages = [];
+    }
+    rooms[user.room].messages.push(message);
+    
+    // Limit message history (keep last 100 messages)
+    if (rooms[user.room].messages.length > 100) {
+      rooms[user.room].messages.shift();
+    }
     
     // Send to everyone in the room including sender
     io.to(user.room).emit('message', message);
@@ -131,31 +165,76 @@ io.on('connection', (socket) => {
     // Join new room
     user.room = newRoom;
     socket.join(newRoom);
+    
+    // Send message history to the user
+    if (rooms[user.room].messages) {
+      socket.emit('messageHistory', rooms[user.room].messages);
+    }
+    
     io.to(newRoom).emit('userJoined', {
       nickname: user.nickname,
       timestamp: new Date().toISOString()
     });
     
+    // Send join confirmation
+    socket.emit('joinSuccess', {
+      roomId: newRoom,
+      roomName: rooms[newRoom].name
+    });
+    
     console.log(`${user.nickname} changed room to: ${newRoom}`);
+  });
+  
+  // Handle explicit logout
+  socket.on('logout', () => {
+    const user = users[socket.id];
+    if (user) {
+      // Notify room members if user was in a room
+      if (user.room) {
+        io.to(user.room).emit('userLeft', {
+          nickname: user.nickname,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Remove from typing users if present
+      if (typingUsers[socket.id]) {
+        delete typingUsers[socket.id];
+        if (user.room) {
+          io.to(user.room).emit('typingStatus', Object.values(typingUsers));
+        }
+      }
+      
+      // Clean up user data
+      delete users[socket.id];
+      console.log(`${user.nickname} logged out`);
+    }
+    
+    // Confirm logout to client
+    socket.emit('logoutSuccess');
   });
   
   // Handle disconnection
   socket.on('disconnect', () => {
     const user = users[socket.id];
     if (user) {
-      io.to(user.room).emit('userLeft', {
-        nickname: user.nickname,
-        timestamp: new Date().toISOString()
-      });
-      
-      delete users[socket.id];
+      // Notify room members if user was in a room
+      if (user.room) {
+        io.to(user.room).emit('userLeft', {
+          nickname: user.nickname,
+          timestamp: new Date().toISOString()
+        });
+      }
       
       // Remove from typing users if present
       if (typingUsers[socket.id]) {
         delete typingUsers[socket.id];
-        io.to(user.room).emit('typingStatus', Object.values(typingUsers));
+        if (user.room) {
+          io.to(user.room).emit('typingStatus', Object.values(typingUsers));
+        }
       }
       
+      delete users[socket.id];
       console.log(`${user.nickname} disconnected`);
     }
   });
