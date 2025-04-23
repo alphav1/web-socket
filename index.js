@@ -1,3 +1,28 @@
+/*
+How does the Socket.io server work and establish WebSocket connections in this case?
+We create an HTTP server using the express app instance and then pass that server to Socket.IO.
+This allows Socket.IO to use the same server instance for both HTTP and WebSocket connections.
+We set up a listener for the 'connection' event on the Socket.IO server.
+When a client connects, Socket.IO emits a 'connection' event, and we can handle that event to set up the connection.
+
+On the client side, we use the Socket.IO client library to connect to the server.
+The client library automatically handles the WebSocket connection and falls back to other transport methods if WebSockets are not supported.
+When the client page loads, the Socket.IO client library (socket.io.min.js) is included, and it connects to the server using the URL of the server.
+The client then creates a connection by calling io(). This establishes a WebSocket connection to the server.
+
+The connection remains open until either the client or server closes it, allowing for real-time bidirectional communication.
+There are the two cases in the code:
+- Connecting:
+  Server-side: io.on('connection', (socket) => { ... }) listens for new connections from clients.
+  Client-side: const socket = io() creates a new connection to the server.
+
+- Disconnecting:
+  Server-side: socket.on('disconnect', () => { ... }) listens for disconnection events from clients. An explicit logout event is also handled.
+  When a client disconnects or logs out, the server cleans up resources as well as notifies other clients in the room.
+  Client-side: socket.disconnect() can be called to explicitly disconnect from the server. Also socket.emit(logout) is used to notify the server about the logout event.
+- Reconnecting: The Socket.IO client library automatically attempts to reconnect to the server if the connection is lost.
+*/
+
 const express = require('express'); // Import express, a web framework for Node.js
 // It is used to create a web server and handle HTTP requests.
 const http = require('http'); // Import http, a built-in Node.js module for creating HTTP servers.
