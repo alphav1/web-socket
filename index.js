@@ -1,18 +1,23 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+const express = require('express'); // Import express, a web framework for Node.js
+// It is used to create a web server and handle HTTP requests.
+const http = require('http'); // Import http, a built-in Node.js module for creating HTTP servers.
+const { Server } = require('socket.io'); // Import socket.io
+const path = require('path'); // Import path, a built-in Node.js module for handling file and directory paths.
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const app = express(); // Create an instance of express
+// This instance will be used to configure the web server and handle requests.
+const server = http.createServer(app); // Create an HTTP server using the express app instance
+// This server will be used to handle WebSocket connections with Socket.IO.
+const io = new Server(server); // Create a new Socket.IO server instance using the HTTP server
+// This instance will be used to handle real-time communication between clients and the server.
 
 // Serve static files
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname))); // Any static files (like HTML, CSS, JS) in the current directory will be served by express.
 
 // Serve the client page
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client.html'));
+  res.sendFile(path.join(__dirname, 'client.html')); // When a GET request is made to the root URL, send the client.html file as a response.
+  // This file will be the main page for the chat application.
 });
 
 // Store users and their rooms
@@ -27,10 +32,16 @@ const rooms = {
 };
 
 // Socket.IO connection handling
+// This event is triggered when a new client connects to the server via WebSocket.
+// The socket parameter represents the connection to the client.
 io.on('connection', (socket) => {
+  // Log the connection
+  // This will log the socket ID of the connected user to the console.
   console.log('A user connected:', socket.id);
   
   // Handle user joining a room
+  // This event is triggered when a user sends a 'join' event to the server.
+  // The data parameter contains the user's nickname and the room they want to join.
   socket.on('join', (data) => {
     // Store user data
     const user = {
@@ -39,18 +50,22 @@ io.on('connection', (socket) => {
       room: data.room || 'general'
     };
     
-    users[socket.id] = user;
+    users[socket.id] = user; // Store the user in the users object using their socket ID as the key.
     
     // Join the specified room
     socket.join(user.room);
     
     // Notify everyone in the room that a user has joined
+    // io.to(user.room) sends a message to all sockets in the specified room.
+    // emit('userJoined') sends a message to the room with the user's nickname and timestamp.
     io.to(user.room).emit('userJoined', {
       nickname: user.nickname,
       timestamp: new Date().toISOString()
     });
     
     // Send current rooms to the user
+    // Object.keys(rooms) gets an array of room names from the rooms object.
+    // socket.emit is the function used to send a message to the client.
     socket.emit('roomList', Object.keys(rooms).map(key => ({
       id: key,
       name: rooms[key].name
@@ -67,10 +82,15 @@ io.on('connection', (socket) => {
       roomName: rooms[user.room].name
     });
     
+    // Log the user joining the room
     console.log(`${user.nickname} joined room: ${user.room}`);
   });
   
   // Handle chat messages
+  // This event is triggered when a user sends a chat message to the server.
+  // The data parameter contains the message content.
+  // The message is then broadcasted to all users in the same room.
+  // .on('chatMessage') listens for the 'chatMessage' event from the client.
   socket.on('chatMessage', (data) => {
     const user = users[socket.id];
     if (!user) return;
@@ -99,6 +119,7 @@ io.on('connection', (socket) => {
     io.to(user.room).emit('message', message);
     
     // Reset typing status
+    // This will remove the typing status of the user who sent the message.
     if (typingUsers[socket.id]) {
       delete typingUsers[socket.id];
       io.to(user.room).emit('typingStatus', Object.values(typingUsers));
@@ -129,6 +150,8 @@ io.on('connection', (socket) => {
     // Limit message history (keep last 100 messages)
     if (rooms[user.room].messages.length > 100) {
       rooms[user.room].messages.shift();
+      // shift() removes the first element from an array and returns it.
+      // This is used to keep the message history limited to the last 100 messages.
     }
     
     // Send to everyone in the room including sender
@@ -245,3 +268,38 @@ const PORT = process.env.PORT || 8000;
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+/*
+
+MESSAGE SENDING METHODS:
+socket.emit('eventName', data) - Sends an event to the client from the server (one way).
+Only the client connected to the specific socket will receive this event.
+
+io.emit('eventName', data) - Sends an event to all connected clients from the server (broadcast).
+io.to(room).emit('eventName', data) - Sends an event to all clients in a specific room.
+This is useful for broadcasting messages to a specific group of users.
+
+socket.broadcast.emit('eventName', data) - Sends an event to all clients except the sender.
+socket.broadcast.to(room).emit('eventName', data) - Sends an event to all clients in a specific room except the sender.
+This is useful for notifying all other users in a room about an event that occurred.
+
+ROOM MANAGEMENT:
+socket.join(room) - Adds the socket to a specific room. This allows for grouping sockets together.
+socket.leave(room) - Removes the socket from a specific room.
+
+EVENT HANDLING:
+socket.on('eventName', (data) => { ... }) - Listens for an event from the client.
+This is how the server receives messages from the client - events like sending messages, typing, etc.
+io.on('eventName', (data) => { ... }) - Listens for an event from all clients.
+This is used for handling events that are not specific to a single socket, like connection and disconnection events.
+
+IO and SOCKET OBJECTS:
+io - The main Socket.IO server instance. It is used to manage all connected sockets and rooms.
+Server-level instance of Socket.IO. Manages all connections, handles server event like initial connections,
+can broadcast messages to all clients or specific rooms.
+
+
+socket - Represents a single connection to a client. Each client has its own socket object.
+Client-specific instance of Socket.IO. Represents a single connection to a client. Maintains state for a single user,
+can send messages to that specific client, and can join/leave rooms. Enables communications between server and specific client.
+*/

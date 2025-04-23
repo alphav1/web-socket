@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Socket.IO Chat</title>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- The styling sheet -->
     <style>
         :root {
             --primary-color: #4a90e2;
@@ -411,7 +412,12 @@
 
     <!-- External JS -->
     <script>
+        // Wait for the DOM (Document Object Model) to load before executing the script.
+        // This ensures that the script runs after the HTML elements are available in the DOM
+        // and prevents any potential errors related to accessing elements that are not yet loaded.
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Socket.IO client
+            // The io() function is used to establish a connection to the server using Socket.IO.
             const socket = io();
 
             // DOM elements
@@ -435,13 +441,14 @@
             const inputArea = document.getElementById('input-area');
 
             // App state
-            let currentRoom = null;
-            let currentUser = '';
-            let typingTimeout = null;
-            let selectedImageData = null;
-            let availableRooms = [];
+            let currentRoom = null; // Current room ID
+            let currentUser = ''; // Current user nickname
+            let typingTimeout = null; // Timeout for typing indicator
+            let selectedImageData = null; // Data URL of the selected image
+            let availableRooms = []; // List of available rooms
 
-            // For login
+            // For login, we need to get the nickname and room from the user
+            // When the user clicks the "Join Chat" button, we will emit a "join" event to the server with the nickname and room.
             joinBtn.addEventListener('click', () => {
                 const nickname = nicknameInput.value.trim();
                 const room = roomSelect.value;
@@ -467,6 +474,7 @@
 
             // Logout button
             logoutBtn.addEventListener('click', () => {
+                // Emit logout event to server
                 socket.emit('logout');
             });
 
@@ -476,6 +484,7 @@
             // Enter key to send message
             messageInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
+                    // Send message on Enter key press
                     sendMessage();
                 }
             });
@@ -493,6 +502,7 @@
                 if (hasContent) {
                     if (selectedImageData) {
                         // Send image with optional text
+                        // Emit image message to server
                         socket.emit('imageMessage', {
                             image: selectedImageData,
                             text: message
@@ -502,9 +512,11 @@
                         selectedImageData = null;
                     } else {
                         // Send text only
+                        // Emit text message to server
                         socket.emit('chatMessage', { message });
                     }
                     messageInput.value = '';
+                    // Clear typing indicator
                     messageInput.focus();
                 }
             }
